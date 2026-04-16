@@ -1,0 +1,90 @@
+Análisis y extracción de conocimiento en BigData: Fundamentos de Apache Spark
+
+Dataset original:
+Dataset: Consumo eléctrico
+Columna Descripción
+Día Fecha en la que se realizó el consumo siguiendo el formato 
+AAAMMDD (Año/mes/día)
+H1, H2, …, H25 Hora dentro del día  correspondiente. Se dan 25 registros debidoa 
+que existe un día del año (último sábado de octubre) en el que se 
+cambia el horario y dicho día tiene 25 horas.
+ACTIVA_H1,ACTIVA_H2, …, 
+ACTIVA_H25
+Energía activa consumida para cada hora medida en Wh(Vatio 
+hora). Se trata de la energía útil  que los clientes absorben de la red 
+y transforman en trabajo y/o calor en su casa.
+REACTIVA_H1,REACTIVA_H2, 
+…, REACTIVA_H25
+Energía reactiva consumida para cada hora medida en Varh
+(voltioAmperioreactivo hora). Se trata de consumo suplementario 
+que los clientes no pueden aprovechar. Actualmente la energía 
+reactiva no se factura, aunque podría facturarse en el futuro como 
+medida para mejorar la eficiencia energética en el hogar
+DE_MUNUCIP Municipio enel que se encuentra el cliente  sobre el que se dan los datos de consumo horario. Referencia 
+geográfica.
+FECHA_ALTA_STRO Fecha en la que dio de alta el suministro del cliente en cuestión con el siguiente formato QXAAAA 
+(cuatrimestre/año). Referencia temporal.
+TARGET_TENDENCIA_CUPS Probabilidadde que en dicho municipio exista distribución de gas natural (no implica que el cliente tenga 
+contratado servicio de gas natural)
+IDENTIFICADOR Código identificador que te permiteindividualizar los consumos por cliente.
+CNAE (Clasificador NacionalActividades 
+Económicas)
+Indica si el cliente es doméstico (T1)o  no lo es (T2).
+PRODUCTO Tarifa/producto eléctrico que el cliente tiene contratado como servicio. Existen hasta 120 productos.
+MERCADO Indica si se trata de un cliente con tarifa regulada (M1) o uncliente con tarifa de Mercado Libre (M2).
+- Tarifa Regulada: el precio de la electricidad viene regulado de forma periódica por el organismo 
+competente.
+- Mercado Libre: el precio de la electricidad es libremente pactado entre la comercializadora y el cliente
+
+
+
+
+Dataset reducido:
+
+
+Dataset: Consumo eléctrico (Reducido)
+-Fichero endesaAgregada(364 MB):
+-Datos agregados por cliente, mes y año de 24 horas de consumos (medianas)
+Columna Descripción
+IDENTIFICADOR Código identificador que te permiteindividualizar los consumos por cliente.
+AÑOMES Fecha en la que se realizó el consumo siguiendo el formato AAAMM (Año/mes)
+CNAE Indica si el cliente es doméstico (T1)o  no lo es (T2).
+PRODUCTO Tarifa/producto eléctrico que el cliente tiene contratado como servicio. 
+MERCADO Indica si se trata de un cliente con tarifa regulada (M1) o uncliente con tarifa de Mercado Libre 
+(M2).
+ACTIVA_H1,ACTIVA_H2, …, ACTIVA_H25 Energía activa consumidapara cada hora medida en Wh(Vatio hora). 
+Hora dentro del día/mes correspondiente. Se deben de considerar 24 registro,1 por cada hora del 
+día (Ignorar H25 para análisis)
+REACTIVA_H1,REACTIVA_H2, …, 
+REACTIVA_H25
+Energía reactiva consumidapara cada hora medida en Varh(voltioAmperioreactivo hora). Se 
+trata de consumo suplementario que los clientes no pueden aprovechar (Ignorar para análisis)
+
+
+
+
+
+
+Realice las siguientes actividades utilizando los distintos componentes que proporciona Apache 
+Spark (Spark Core y Spark SQL)
+
+Cada alumno deberá realizar e implementar las actividades relativas a Spark Core (Carga de datos y 
+preparación de datos) y Spark SQL (Carga de datos, preparación de datos, análisis de datos, consultas 
+interactivas, etc) a los datos de consumo eléctrico (Parte Spark) descritos en este bloque (Caso de estudio).
+
+
+A tener en cuenta:
+-Lectura correcta del fichero usando RDDs/Dataframes/Datasets
+-Selección de columnas adecuadas para el análisis: 
+ -Ejemplo: en el caso de los datos eléctricos proporcionados -> No selección de hora 25 y potencia reactiva.
+-Preprocesamiento de los datos: limpieza de datos
+-Aplicación correcta de métodos sobre RDDs (paralelos)
+-Realización de varias consultas adecuadas con API tipada/no tipada
+-Registro de tablas
+-Realización de varias consultas adecuadas con API SQL
+-Realización de UDF adecuadas y consultas interactivas
+-Despliegue de la aplicación y monitorización 
+-Visualización de resultados obtenidos (tablas y gráficas)
+-Calidad del documento y de las explicaciones (qué se hace, qué se obtiene, conclusiones obtenidas a partir del 
+análisis)
+-Correcta ejecución de los métodos
