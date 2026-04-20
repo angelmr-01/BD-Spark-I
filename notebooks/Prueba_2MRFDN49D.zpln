@@ -1,0 +1,89 @@
+{
+  "paragraphs": [
+    {
+      "text": "%spark\r\nval datos \u003d spark.range(1, 1000)\r\ndatos.groupBy((col(\"id\") % 10).alias(\"grupo\"))\r\n .count()\r\n .orderBy(\"grupo\")\r\n .show()",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-16 10:52:59.530",
+      "progress": 33,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "+-----+-----+\n|grupo|count|\n+-----+-----+\n|    0|   99|\n|    1|  100|\n|    2|  100|\n|    3|  100|\n|    4|  100|\n|    5|  100|\n|    6|  100|\n|    7|  100|\n|    8|  100|\n|    9|  100|\n+-----+-----+\n\n\u001b[1m\u001b[34mdatos\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Dataset[Long]\u001b[0m \u003d [id: bigint]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://f40095cc6c35:4040/jobs/job?id\u003d0"
+            },
+            {
+              "jobUrl": "http://f40095cc6c35:4040/jobs/job?id\u003d1"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776336761138_2059919561",
+      "id": "paragraph_1776336761138_2059919561",
+      "dateCreated": "2026-04-16 10:52:41.142",
+      "dateStarted": "2026-04-16 10:52:59.578",
+      "dateFinished": "2026-04-16 10:53:44.738",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%spark\n",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-16 10:52:59.574",
+      "progress": 0,
+      "config": {},
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776336779573_1571367304",
+      "id": "paragraph_1776336779573_1571367304",
+      "dateCreated": "2026-04-16 10:52:59.574",
+      "status": "READY"
+    }
+  ],
+  "name": "Prueba",
+  "id": "2MRFDN49D",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.12.0",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}

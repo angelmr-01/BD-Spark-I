@@ -31,6 +31,7 @@ services:
       - "7077:7077"
     volumes:
       - spark-home:/opt/spark
+      - ./data:/opt/spark/data
     networks:
       - spark-network
     restart: on-failure
@@ -58,6 +59,7 @@ services:
         condition: service_healthy
     volumes:
       - spark-home:/opt/spark
+      - ./data:/opt/spark/data
     networks:
       - spark-network
     restart: on-failure
@@ -83,6 +85,7 @@ services:
       - spark-home:/opt/spark
       - ./notebooks:/opt/zeppelin/notebook
       - zeppelin-logs:/opt/zeppelin/logs
+      - ./data:/opt/spark/data
     depends_on:
       spark-master:
         condition: service_healthy
@@ -123,6 +126,7 @@ services:
     volumes:
       - spark-home:/opt/spark
       - ./trabajo:/home/trabajo   # Carpeta compartida con el host
+      - ./data:/opt/spark/data
     depends_on:
       spark-master:
         condition: service_healthy
