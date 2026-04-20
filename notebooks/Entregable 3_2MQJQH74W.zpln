@@ -1,0 +1,553 @@
+{
+  "paragraphs": [
+    {
+      "text": "// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// BLOQUE 1: LECTURA Y LIMPIEZA CON SPARK CORE (API RDD)\r\n// Copia este bloque en el primer párrafo de Zeppelin\r\n// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\nimport org.apache.spark.sql.SparkSession\r\nimport org.apache.spark.sql.functions._\r\nimport org.apache.spark.sql.types._\r\n\r\n// 1. LECTURA DEL FICHERO USANDO RDD\r\n// Como el dataset no tiene cabecera, leemos directamente el texto\r\nval rddCrudo \u003d spark.sparkContext.textFile(\"file:///opt/spark/data/endesaAgregada\")\r\n\r\n// 2. SELECCIÓN DE COLUMNAS (Ignorar reactiva y H25)\r\n// Spliteamos por comas y extraemos sólo la información base y las horas del 1 al 24.\r\nval rddSeleccionado \u003d rddCrudo.map(linea \u003d\u003e {\r\n  val cols \u003d linea.split(\",\")\r\n  val identificador \u003d cols(0).trim\r\n  val anomes \u003d cols(1).trim\r\n  val cnae \u003d cols(2).trim\r\n  val producto \u003d cols(3).trim\r\n  val mercado \u003d cols(4).trim\r\n  \r\n  // Extraemos H1 a H24 (posiciones 5 a 28), ignorando H25 (29) y Reactivas (30+)\r\n  val consumosArray \u003d cols.slice(5, 29).map(_.trim.toDouble)\r\n  \r\n  (identificador, anomes, cnae, producto, mercado, consumosArray)\r\n})\r\n\r\n// 3. PREPROCESAMIENTO Y LIMPIEZA DE DATOS\r\n// Tras seleccionar columnas, aplicamos limpieza eliminando cualquier fila\r\n// donde el CNAE o PRODUCTO vengan vacíos, o si existen mediciones negativas erróneas.\r\nval rddLimpio \u003d rddSeleccionado.filter { caso \u003d\u003e \r\n  caso._3.nonEmpty \u0026\u0026 caso._4.nonEmpty \u0026\u0026 caso._6.forall(_ \u003e\u003d 0)\r\n}\r\n\r\n// 4. APLICACIÓN DE MÉTODOS SOBRE RDDs (PARALELOS)\r\n// Transformación Paralela 1 (Map): Calculamos de nuevo la estructura y la suma\r\nval rddProcesado \u003d rddLimpio.map(caso \u003d\u003e {\r\n  val (identificador, anomes, cnae, producto, mercado, consumosArray) \u003d caso\r\n  val totalActiva \u003d consumosArray.sum\r\n  (identificador, anomes, cnae, producto, mercado, totalActiva)\r\n})\r\n\r\n// Transformación Paralela 2 (Shuffling / Agrupación): Calculamos el consumo total por Tipo de Mercado\r\n// extraemos (Mercado -\u003e Valor), y sumamos todo usando reduceByKey en paralelo en todo el cluster.\r\nval rddTotalPorMercado \u003d rddProcesado\r\n  .map(x \u003d\u003e (x._5, x._6)) // x._5 es el mercado, x._6 es el totalActiva\r\n  .reduceByKey(_ + _)\r\n\r\n// Acciones que disparan la ejecución:\r\nprintln(\"Consumo global por mercado:\")\r\nrddTotalPorMercado.collect().foreach(println)\r\n",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:24:40.684",
+      "progress": 50,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Consumo global por mercado:\n(M1,3.580541891E9)\n(M2,3.6993274255E9)\nimport org.apache.spark.sql.SparkSession\nimport org.apache.spark.sql.functions._\nimport org.apache.spark.sql.types._\n\u001b[1m\u001b[34mrddCrudo\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.rdd.RDD[String]\u001b[0m \u003d file:///opt/spark/data/endesaAgregada MapPartitionsRDD[1] at textFile at \u003cconsole\u003e:36\n\u001b[1m\u001b[34mrddSeleccionado\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.rdd.RDD[(String, String, String, String, String, Array[Double])]\u001b[0m \u003d MapPartitionsRDD[2] at map at \u003cconsole\u003e:40\n\u001b[1m\u001b[34mrddLimpio\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.rdd.RDD[(String, String, String, String, String, Array[Double])]\u001b[0m \u003d MapPartitionsRDD[3] at filter at \u003cconsole\u003e:57\n\u001b[1m\u001b[34mrddProcesado\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.rdd.RDD[(String, String, String, String, String, Double)]\u001b[0m \u003d MapPartitionsRDD[4] at map at \u003cconsole\u003e:63\n\u001b[1m\u001b[34mrddTotalPorMercad...\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d0"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776525805633_125967252",
+      "id": "paragraph_1776525805633_125967252",
+      "dateCreated": "2026-04-18 15:23:25.639",
+      "dateStarted": "2026-04-18 15:24:40.742",
+      "dateFinished": "2026-04-18 15:25:27.942",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// BLOQUE 2: LECTURA, SELECCIÓN, LIMPIEZA Y CONSULTAS (API NO TIPADA - DataFrames)\r\n// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n\r\n// 1. LECTURA (API NO TIPADA)\r\n// Definimos el mismo esquema (5 base + 25 activa + 25 reactiva)\r\nval schemaDefinition \u003d StructType(\r\n    (Array(\r\n      StructField(\"IDENTIFICADOR\", StringType, true),\r\n      StructField(\"ANOMES\", IntegerType, true),\r\n      StructField(\"CNAE\", StringType, true),\r\n      StructField(\"PRODUCTO\", StringType, true),\r\n      StructField(\"MERCADO\", StringType, true)\r\n    ) ++ \r\n    (1 to 25).map(i \u003d\u003e StructField(s\"ACTIVA_H$i\", DoubleType, true)) ++\r\n    (1 to 25).map(i \u003d\u003e StructField(s\"REACTIVA_H$i\", DoubleType, true))).toArray\r\n)\r\n\r\nval dfBruto \u003d spark.read\r\n    .option(\"header\", \"false\")\r\n    .option(\"ignoreLeadingWhiteSpace\", \"true\")\r\n    .option(\"delimiter\",\",\")\r\n    .schema(schemaDefinition)\r\n    .csv(\"file:///opt/spark/data/endesaAgregada\")\r\n\r\n// 2. SELECCIÓN DE COLUMNAS\r\n// Eliminamos explícitamente H25 y Reactivas mediante la API de Dataframe\r\nval columnasABorrar \u003d Seq(\"ACTIVA_H25\") ++ (1 to 25).map(i \u003d\u003e s\"REACTIVA_H$i\")\r\nval dfSeleccionado \u003d dfBruto.drop(columnasABorrar: _*)\r\n\r\n// 3. PREPROCESAMIENTO: LIMPIEZA DE DATOS\r\n// Eliminamos cualquier fila que contenga nulos en campos clave, igual que hicimos en RDD\r\nval dfLimpio \u003d dfSeleccionado.na.drop(Seq(\"IDENTIFICADOR\", \"CNAE\", \"MERCADO\"))\r\n\r\n// 4. VARIAS CONSULTAS CON API NO TIPADA\r\n// Consulta A: Mostrar los datos base de usuarios concretos correspondientes al mes de Julio de 2015 (201507)\r\nval dfFiltroAnomes \u003d dfLimpio.filter(col(\"ANOMES\") \u003d\u003d\u003d 201507)\r\nprintln(\"Consulta A (No Tipada) - Filtro Clientes de Julio 2015:\")\r\ndfFiltroAnomes.select(\"IDENTIFICADOR\", \"MERCADO\", \"PRODUCTO\", \"ACTIVA_H1\", \"ACTIVA_H20\").show(5)\r\n\r\n// Consulta B: Contar volumen total de clientes repartidos en su respectivo mercado y perfil de usuario (CNAE)\r\nval dfAgrupacionNoTipada \u003d dfLimpio.groupBy(\"MERCADO\", \"CNAE\").count().orderBy(desc(\"count\"))\r\nprintln(\"Consulta B (No Tipada) - Agrupación y Conteo por Mercado y Perfil:\")\r\ndfAgrupacionNoTipada.show()",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:25:53.827",
+      "progress": 25,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Consulta A (No Tipada) - Filtro Clientes de Julio 2015:\n+-------------+-------+--------+---------+----------+\n|IDENTIFICADOR|MERCADO|PRODUCTO|ACTIVA_H1|ACTIVA_H20|\n+-------------+-------+--------+---------+----------+\n|        32116|     M1|      P1|    512.0|     534.0|\n|        27062|     M1|      P1|      0.0|       0.0|\n|        86254|     M2|     P38|    148.0|     155.0|\n|        74756|     M2|     P13|    140.0|     174.0|\n|        14469|     M2|     P11|    951.0|     268.0|\n+-------------+-------+--------+---------+----------+\nonly showing top 5 rows\n\nConsulta B (No Tipada) - Agrupación y Conteo por Mercado y Perfil:\n+-------+----+------+\n|MERCADO|CNAE| count|\n+-------+----+------+\n|     M1|  T1|556046|\n|     M2|  T1|418759|\n|     M1|  T2|121578|\n|     M2|  T2| 76986|\n+-------+----+------+\n\n\u001b[1m\u001b[34mschemaDefinition\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.types.StructType\u001b[0m \u003d StructType(StructField(IDENTIFICADOR,StringType,true),StructField(ANOMES,IntegerType,true),StructField(CNAE,StringType,true),StructField(PRODUCTO,StringType,true),StructField(MERCADO,StringType,true),StructField(ACTIVA_H1,DoubleType,true),StructField(ACTIVA_H2,DoubleType,true),StructField(ACTIVA_H3,DoubleType,true),StructField(ACTIVA_H4,DoubleType,true),StructField(ACTIVA_H5,DoubleType,true),StructField(ACTIVA_H6,DoubleType,true),StructField(ACTIVA_H7,DoubleType,true),StructField(ACTIVA_H8,DoubleType,true),StructField(ACTIVA_H9,DoubleType,true),StructField(ACTIVA_H10,DoubleType,true),StructField(ACTIVA_H11,DoubleType,true),StructField(ACTIVA_H12,DoubleType,true),StructField(ACTIVA_H13,DoubleType,true),St...\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d1"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d2"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d3"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776525880738_168479320",
+      "id": "paragraph_1776525880738_168479320",
+      "dateCreated": "2026-04-18 15:24:40.738",
+      "dateStarted": "2026-04-18 15:25:53.853",
+      "dateFinished": "2026-04-18 15:26:08.514",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// BLOQUE 3: CONSULTAS CON API TIPADA (Datasets)\r\n// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// 1. DEFINICIÓN DEL MODELO ESTRUCTURADO ESTRICTO\r\ncase class ConsumoElectrico(\r\n  IDENTIFICADOR: String, ANOMES: Int, CNAE: String, PRODUCTO: String, MERCADO: String,\r\n  ACTIVA_H1: Double, ACTIVA_H2: Double, ACTIVA_H3: Double, ACTIVA_H4: Double, ACTIVA_H5: Double,\r\n  ACTIVA_H6: Double, ACTIVA_H7: Double, ACTIVA_H8: Double, ACTIVA_H9: Double, ACTIVA_H10: Double,\r\n  ACTIVA_H11: Double, ACTIVA_H12: Double, ACTIVA_H13: Double, ACTIVA_H14: Double, ACTIVA_H15: Double,\r\n  ACTIVA_H16: Double, ACTIVA_H17: Double, ACTIVA_H18: Double, ACTIVA_H19: Double, ACTIVA_H20: Double,\r\n  ACTIVA_H21: Double, ACTIVA_H22: Double, ACTIVA_H23: Double, ACTIVA_H24: Double\r\n)\r\n",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:30:59.769",
+      "progress": 0,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "defined class ConsumoElectrico\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776525921445_163947318",
+      "id": "paragraph_1776525921445_163947318",
+      "dateCreated": "2026-04-18 15:25:21.447",
+      "dateStarted": "2026-04-18 15:30:59.801",
+      "dateFinished": "2026-04-18 15:31:01.443",
+      "status": "FINISHED"
+    },
+    {
+      "text": "\r\nimport spark.implicits._\r\n\r\n// Transformación a Dataset (El compilador valida los tipos automáticamente desde el DataFrame limpio)\r\nval dsConsumo \u003d dfLimpio.as[ConsumoElectrico]\r\n\r\n// 2. VARIAS CONSULTAS CON API TIPADA (Usando closures de Scala puros)\r\n// Consulta A: Diferencia de impacto entre horario nocturno (22h) y madrugada (4h) en Mercado M1\r\nval dsMercadoRegulado \u003d dsConsumo.filter(cliente \u003d\u003e cliente.MERCADO \u003d\u003d \"M1\")\r\n\r\nval dsAnalisisImpacto \u003d dsMercadoRegulado.map(cliente \u003d\u003e {\r\n  val diferenciaNoturna \u003d cliente.ACTIVA_H22 - cliente.ACTIVA_H4\r\n  // Retornamos tuplas de análisis (AñoMes, Producto, Diferencia de Consumo)\r\n  (cliente.ANOMES, cliente.PRODUCTO, diferenciaNoturna)\r\n}).withColumnRenamed(\"_1\", \"ANOMES\").withColumnRenamed(\"_2\", \"PRODUCTO\").withColumnRenamed(\"_3\", \"Diferencia_Noche_Madrugada\")\r\n\r\nprintln(\"Consulta A (Tipada) - Consumo Nocturno frente a Madrugada en Mercado M1:\")\r\ndsAnalisisImpacto.orderBy(desc(\"Diferencia_Noche_Madrugada\")).show(5)\r\n\r\n// Consulta B: Agrupación estrictamente Tipada (groupByKey). \r\n// Sumario de la Hora de comer (ACTIVA_H14) categorizado por PRODUCTO.\r\n// Nota: Observa cómo no usamos \"nombres sueltos de columna en String\", sino las propiedades de la case class.\r\nval dsTotalHoraPuntaPorProducto \u003d dsConsumo\r\n  .groupByKey(cliente \u003d\u003e cliente.PRODUCTO)\r\n  .mapValues(cliente \u003d\u003e cliente.ACTIVA_H14) \r\n  .reduceGroups((consumo_a, consumo_b) \u003d\u003e consumo_a + consumo_b)\r\n  .withColumnRenamed(\"value\", \"Suma_Total_H14\")\r\n\r\nprintln(\"Consulta B (Tipada) - Suma total de consumo a la Hora de Comer (H14) por Producto:\")\r\ndsTotalHoraPuntaPorProducto.show()",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:31:07.532",
+      "progress": 25,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Consulta A (Tipada) - Consumo Nocturno frente a Madrugada en Mercado M1:\n+------+--------+--------------------------+\n|ANOMES|PRODUCTO|Diferencia_Noche_Madrugada|\n+------+--------+--------------------------+\n|201507|      P1|                   18896.0|\n|201411|      P1|                   13577.5|\n|201412|      P1|                   13164.0|\n|201507|      P1|                   12540.0|\n|201411|      P2|                   11745.0|\n+------+--------+--------------------------+\nonly showing top 5 rows\n\nConsulta B (Tipada) - Suma total de consumo a la Hora de Comer (H14) por Producto:\n+----+------------------------+\n| key|ReduceAggregator(double)|\n+----+------------------------+\n|P110|                 30380.0|\n| P62|               3683191.0|\n|P118|                  5158.5|\n| P72|                106126.5|\n| P13|            6.69090385E7|\n| P96|                  3381.0|\n| P59|                271701.0|\n| P74|                 18218.0|\n| P30|            2.27564595E7|\n| P87|                103931.5|\n|P119|                 20346.5|\n| P82|                 41800.5|\n| P23|               1895623.0|\n| P61|                  1000.5|\n|  P2|               8855184.0|\n|P111|                 38172.0|\n| P75|                325803.5|\n|P117|                  5345.5|\n| P67|                 22062.0|\n| P71|                  4700.5|\n+----+------------------------+\nonly showing top 20 rows\n\nimport spark.implicits._\n\u001b[1m\u001b[34mdsConsumo\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Dataset[ConsumoElectrico]\u001b[0m \u003d [IDENTIFICADOR: string, ANOMES: int ... 27 more fields]\n\u001b[1m\u001b[34mdsMercadoRegulado\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Dataset[ConsumoElectrico]\u001b[0m \u003d [IDENTIFICADOR: string, ANOMES: int ... 27 more fields]\n\u001b[1m\u001b[34mdsAnalisisImpacto\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [ANOMES: int, PRODUCTO: string ... 1 more field]\n\u001b[1m\u001b[34mdsTotalHoraPuntaPorProducto\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [key: string, ReduceAggregator(double): double]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d4"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d5"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d6"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776525990621_1022024721",
+      "id": "paragraph_1776525990621_1022024721",
+      "dateCreated": "2026-04-18 15:26:30.621",
+      "dateStarted": "2026-04-18 15:31:07.557",
+      "dateFinished": "2026-04-18 15:31:38.515",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// BLOQUE 4: UDFs, REGISTRO DE TABLAS Y API SQL\r\n// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n\r\n// 1. REALIZACIÓN DE UDF ADECUADAS\r\n// UDF A (Segmentación Matemática): Analiza las horas de la tarde-noche (Prime Time: 19h a 23h)\r\n// y determina el perfil de intensidad del cliente en esa franja crítica.\r\nval clasificarPerfilPunta \u003d udf((h19: Double, h20: Double, h21: Double, h22: Double, h23: Double) \u003d\u003e {\r\n  val pico \u003d h19 + h20 + h21 + h22 + h23\r\n  if (pico \u003e 2500) \"Consumidor EXTREMO Punta\"\r\n  else if (pico \u003e 1000) \"Consumidor ALTO Punta\"\r\n  else \"Consumidor NORMAL\"\r\n})\r\n\r\n// UDF B (Manipulación básica de Strings): Corta el número 201507 para separarlo visualmente en \"2015-07\"\r\nval formatearFecha \u003d udf((anomes: Int) \u003d\u003e {\r\n  val texto \u003d anomes.toString\r\n  texto.substring(0, 4) + \"-\" + texto.substring(4, 6)\r\n})\r\n\r\n// Aplicamos AMBAS UDFs al conjunto de datos de forma paralela en la proyección de datos\r\nval dfPerfilado \u003d dfLimpio\r\n  .withColumn(\r\n    \"Perfil_Intensidad_Tarde\", \r\n    clasificarPerfilPunta(col(\"ACTIVA_H19\"), col(\"ACTIVA_H20\"), col(\"ACTIVA_H21\"), col(\"ACTIVA_H22\"), col(\"ACTIVA_H23\"))\r\n  )\r\n  .withColumn(\"Mes_Formateado\", formatearFecha(col(\"ANOMES\")))\r\n\r\n// 2. REGISTRO DE TABLAS \r\n// Registramos el DataFrame enriquecido con la UDF como una tabla global temporal en memoria\r\ndfPerfilado.createOrReplaceTempView(\"tabla_consumos_electricos\")\r\n\r\n// 3. VARIAS CONSULTAS ADECUADAS CON API SQL\r\n// Consulta SQL A: Ejecutamos una analítica agrupando por el Mes formateado generado por UDF y perfiles\r\nval dfResumenSQL_A \u003d spark.sql(\"\"\"\r\n  SELECT Mes_Formateado, Perfil_Intensidad_Tarde, COUNT(IDENTIFICADOR) as Total_Clientes, ROUND(AVG(ACTIVA_H20), 2) as Media_Consumo_H20\r\n  FROM tabla_consumos_electricos\r\n  GROUP BY Mes_Formateado, Perfil_Intensidad_Tarde\r\n  ORDER BY Mes_Formateado ASC, Total_Clientes DESC\r\n\"\"\")\r\n\r\nprintln(\"Resultado Análisis SQL (A) - Agrupación de Perfiles Punta:\")\r\ndfResumenSQL_A.show(15)\r\n\r\n// Consulta SQL B: Cruzamos los perfiles identificados por nuestra UDF con los tipos de Mercado\r\nval dfResumenSQL_B \u003d spark.sql(\"\"\"\r\n  SELECT MERCADO, Perfil_Intensidad_Tarde, COUNT(*) as Frecuencia\r\n  FROM tabla_consumos_electricos\r\n  WHERE Perfil_Intensidad_Tarde !\u003d \u0027Consumidor NORMAL\u0027\r\n  GROUP BY MERCADO, Perfil_Intensidad_Tarde\r\n  ORDER BY MERCADO ASC, Frecuencia DESC\r\n\"\"\")\r\n\r\nprintln(\"Resultado Análisis SQL (B) - Frecuencia de Picos Anormales en cada Mercado:\")\r\ndfResumenSQL_B.show(10)",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:34:25.587",
+      "progress": 0,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Resultado Análisis SQL (A) - Agrupación de Perfiles Punta:\n+--------------+-----------------------+--------------+-----------------+\n|Mes_Formateado|Perfil_Intensidad_Tarde|Total_Clientes|Media_Consumo_H20|\n+--------------+-----------------------+--------------+-----------------+\n|       2013-09|      Consumidor NORMAL|             1|            120.0|\n|       2013-10|      Consumidor NORMAL|             1|            110.0|\n|       2013-11|      Consumidor NORMAL|             1|            173.5|\n|       2013-12|   Consumidor ALTO P...|             1|            205.0|\n|       2014-01|   Consumidor ALTO P...|             1|            200.0|\n|       2014-02|   Consumidor ALTO P...|             1|            195.0|\n|       2014-03|      Consumidor NORMAL|             1|            172.0|\n|       2014-04|      Consumidor NORMAL|             1|            112.0|\n|       2014-05|      Consumidor NORMAL|             2|            102.0|\n|       2014-06|   Consumidor ALTO P...|            15|           286.47|\n|       2014-06|      Consumidor NORMAL|             9|            98.89|\n|       2014-06|   Consumidor EXTREM...|             4|           702.75|\n|       2014-07|   Consumidor ALTO P...|            40|           311.38|\n|       2014-07|      Consumidor NORMAL|            31|             82.1|\n|       2014-07|   Consumidor EXTREM...|            17|           953.47|\n+--------------+-----------------------+--------------+-----------------+\nonly showing top 15 rows\n\nResultado Análisis SQL (B) - Frecuencia de Picos Anormales en cada Mercado:\n+-------+-----------------------+----------+\n|MERCADO|Perfil_Intensidad_Tarde|Frecuencia|\n+-------+-----------------------+----------+\n|     M1|   Consumidor ALTO P...|    221576|\n|     M1|   Consumidor EXTREM...|    118717|\n|     M2|   Consumidor ALTO P...|    200416|\n|     M2|   Consumidor EXTREM...|    105598|\n+-------+-----------------------+----------+\n\n\u001b[1m\u001b[34mclasificarPerfilPunta\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.expressions.UserDefinedFunction\u001b[0m \u003d SparkUserDefinedFunction($Lambda$5063/0x0000000841b01440@14138914,StringType,List(Some(class[value[0]: double]), Some(class[value[0]: double]), Some(class[value[0]: double]), Some(class[value[0]: double]), Some(class[value[0]: double])),Some(class[value[0]: string]),None,true,true)\n\u001b[1m\u001b[34mformatearFecha\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.expressions.UserDefinedFunction\u001b[0m \u003d SparkUserDefinedFunction($Lambda$5072/0x0000000841b04840@7e54b16a,StringType,List(Some(class[value[0]: int])),Some(class[value[0]: string]),None,true,true)\n\u001b[1m\u001b[34mdfPerfilado\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [IDENTIFICADOR: string, ANOMES: int ... 29 more fields]\n\u001b[1m\u001b[34mdfResumenSQL_A\u001b[0m: ...\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d7"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d8"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d9"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d10"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776526267556_1515035188",
+      "id": "paragraph_1776526267556_1515035188",
+      "dateCreated": "2026-04-18 15:31:07.557",
+      "dateStarted": "2026-04-18 15:34:25.651",
+      "dateFinished": "2026-04-18 15:34:46.991",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n// BLOQUE 5: VISUALIZACIÓN DE RESULTADOS INTERACTIVOS (Magia de Zeppelin)\r\n// \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\r\n\r\n// 1. Gráfica del Bloque 1 (RDDs):\r\n// Convertimos el RDD agrupado a Dataframe \"al vuelo\" para que Zeppelin pueda graficarlo\r\nimport spark.implicits._\r\nval dfRddVisual \u003d rddTotalPorMercado.toDF(\"Tipo_Mercado\", \"Total_Suma_Activa\")\r\nz.show(dfRddVisual)",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:43:42.453",
+      "progress": 35,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": false
+                },
+                "scatterChart": {},
+                "stackedAreaChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "style": "stack"
+                }
+              },
+              "keys": [
+                {
+                  "name": "Mes_Formateado",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": [
+                {
+                  "name": "Perfil_Intensidad_Tarde",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ]
+            }
+          }
+        },
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "Tipo_Mercado\tTotal_Suma_Activa\nM1\t3.580541891E9\nM2\t3.6993274255E9\n"
+          },
+          {
+            "type": "TEXT",
+            "data": "import spark.implicits._\n\u001b[1m\u001b[34mdfRddVisual\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [Tipo_Mercado: string, Total_Suma_Activa: double]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d13"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d14"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d15"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776526465646_878351221",
+      "id": "paragraph_1776526465646_878351221",
+      "dateCreated": "2026-04-18 15:34:25.652",
+      "dateStarted": "2026-04-18 15:43:42.476",
+      "dateFinished": "2026-04-18 15:43:46.193",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// 2. Gráfica del Bloque 2 (DataFrame No Tipado):\r\nz.show(dfAgrupacionNoTipada)",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:44:21.709",
+      "progress": 66,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "MERCADO\tCNAE\tcount\nM1\tT1\t556046\nM2\tT1\t418759\nM1\tT2\t121578\nM2\tT2\t76986\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d16"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d17"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776526515965_422744407",
+      "id": "paragraph_1776526515965_422744407",
+      "dateCreated": "2026-04-18 15:35:15.966",
+      "dateStarted": "2026-04-18 15:44:21.732",
+      "dateFinished": "2026-04-18 15:44:31.064",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// 3. Gráfica del Bloque 3 (Datasets Tipados):\r\nz.show(dsTotalHoraPuntaPorProducto)",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:44:36.051",
+      "progress": 66,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "key\tReduceAggregator(double)\nP110\t30380.0\nP62\t3683191.0\nP118\t5158.5\nP72\t106126.5\nP13\t6.69090385E7\nP96\t3381.0\nP59\t271701.0\nP74\t18218.0\nP30\t2.27564595E7\nP87\t103931.5\nP119\t20346.5\nP82\t41800.5\nP23\t1895623.0\nP61\t1000.5\nP2\t8855184.0\nP111\t38172.0\nP75\t325803.5\nP117\t5345.5\nP67\t22062.0\nP71\t4700.5\nP89\t37405.0\nP15\t3958892.0\nP11\t1.5191988E7\nP93\t224733.0\nP7\t85241.0\nP47\t220413.0\nP66\t446051.0\nP53\t446655.0\nP21\t1350968.0\nP8\t508930.5\nP14\t4679935.0\nP91\t22954.5\nP32\t1588120.0\nP70\t251256.0\nP63\t17838.5\nP27\t1077770.5\nP55\t1055037.5\nP3\t476085.5\nP25\t1752140.0\nP106\t913.0\nP57\t129655.5\nP69\t42.0\nP54\t144134.5\nP51\t190829.5\nP39\t4223033.5\nP16\t715439.0\nP60\t651486.5\nP68\t151.5\nP4\t2301164.5\nP97\t890.5\nP79\t229593.0\nP92\t53924.0\nP45\t579310.5\nP88\t103626.0\nP36\t572139.0\nP1\t1.52769308E8\nP78\t648918.0\nP41\t205453.0\nP56\t466750.0\nP17\t1.3165359E7\nP95\t24395.0\nP50\t64274.0\nP12\t275902.0\nP83\t37801.5\nP65\t97733.0\nP31\t740248.0\nP26\t1571247.0\nP43\t2855269.5\nP52\t565384.0\nP46\t280364.0\nP35\t925901.5\nP73\t527933.0\nP48\t822044.0\nP76\t1213596.5\nP22\t4100711.0\nP19\t3161169.5\nP29\t134635.5\nP24\t1891982.0\nP18\t6192843.0\nP6\t511760.0\nP9\t53484.5\nP84\t25965.5\nP28\t2551714.5\nP20\t2257151.5\nP98\t73213.0\nP38\t6561815.5\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d18"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d19"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776527061730_522731816",
+      "id": "paragraph_1776527061730_522731816",
+      "dateCreated": "2026-04-18 15:44:21.735",
+      "dateStarted": "2026-04-18 15:44:36.073",
+      "dateFinished": "2026-04-18 15:44:45.567",
+      "status": "FINISHED"
+    },
+    {
+      "text": "// 4. Gráficas del Bloque 4 (SQL y UDFs):\r\nz.show(dfResumenSQL_A)\r\nz.show(dfResumenSQL_B)",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:45:34.050",
+      "progress": 66,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "Mes_Formateado\tPerfil_Intensidad_Tarde\tTotal_Clientes\tMedia_Consumo_H20\n2013-09\tConsumidor NORMAL\t1\t120.0\n2013-10\tConsumidor NORMAL\t1\t110.0\n2013-11\tConsumidor NORMAL\t1\t173.5\n2013-12\tConsumidor ALTO Punta\t1\t205.0\n2014-01\tConsumidor ALTO Punta\t1\t200.0\n2014-02\tConsumidor ALTO Punta\t1\t195.0\n2014-03\tConsumidor NORMAL\t1\t172.0\n2014-04\tConsumidor NORMAL\t1\t112.0\n2014-05\tConsumidor NORMAL\t2\t102.0\n2014-06\tConsumidor ALTO Punta\t15\t286.47\n2014-06\tConsumidor NORMAL\t9\t98.89\n2014-06\tConsumidor EXTREMO Punta\t4\t702.75\n2014-07\tConsumidor ALTO Punta\t40\t311.38\n2014-07\tConsumidor NORMAL\t31\t82.1\n2014-07\tConsumidor EXTREMO Punta\t17\t953.47\n2014-08\tConsumidor ALTO Punta\t100\t298.97\n2014-08\tConsumidor NORMAL\t71\t96.2\n2014-08\tConsumidor EXTREMO Punta\t41\t998.43\n2014-09\tConsumidor ALTO Punta\t690\t267.05\n2014-09\tConsumidor NORMAL\t496\t85.62\n2014-09\tConsumidor EXTREMO Punta\t275\t983.1\n2014-10\tConsumidor ALTO Punta\t3837\t292.4\n2014-10\tConsumidor NORMAL\t3577\t78.2\n2014-10\tConsumidor EXTREMO Punta\t1870\t1321.61\n2014-11\tConsumidor NORMAL\t40727\t66.49\n2014-11\tConsumidor ALTO Punta\t36920\t315.26\n2014-11\tConsumidor EXTREMO Punta\t22316\t976.24\n2014-12\tConsumidor NORMAL\t39024\t60.01\n2014-12\tConsumidor ALTO Punta\t31380\t315.89\n2014-12\tConsumidor EXTREMO Punta\t29329\t1012.05\n2015-01\tConsumidor NORMAL\t37681\t57.47\n2015-01\tConsumidor EXTREMO Punta\t31534\t1059.15\n2015-01\tConsumidor ALTO Punta\t30676\t319.6\n2015-02\tConsumidor NORMAL\t37660\t57.98\n2015-02\tConsumidor ALTO Punta\t31113\t316.56\n2015-02\tConsumidor EXTREMO Punta\t30826\t1045.95\n2015-03\tConsumidor NORMAL\t41273\t63.19\n2015-03\tConsumidor ALTO Punta\t35543\t296.2\n2015-03\tConsumidor EXTREMO Punta\t22020\t929.46\n2015-04\tConsumidor NORMAL\t47907\t65.93\n2015-04\tConsumidor ALTO Punta\t38134\t256.64\n2015-04\tConsumidor EXTREMO Punta\t12756\t851.29\n2015-05\tConsumidor NORMAL\t49629\t70.88\n2015-05\tConsumidor ALTO Punta\t38692\t262.14\n2015-05\tConsumidor EXTREMO Punta\t10574\t935.11\n2015-06\tConsumidor NORMAL\t48946\t74.33\n2015-06\tConsumidor ALTO Punta\t38575\t270.97\n2015-06\tConsumidor EXTREMO Punta\t11729\t1006.35\n2015-07\tConsumidor NORMAL\t46841\t78.84\n2015-07\tConsumidor ALTO Punta\t34231\t279.04\n2015-07\tConsumidor EXTREMO Punta\t17794\t1124.65\n2015-08\tConsumidor NORMAL\t51347\t80.38\n2015-08\tConsumidor ALTO Punta\t35245\t272.93\n2015-08\tConsumidor EXTREMO Punta\t12823\t1008.85\n2015-09\tConsumidor NORMAL\t48311\t72.74\n2015-09\tConsumidor ALTO Punta\t39238\t262.68\n2015-09\tConsumidor EXTREMO Punta\t11277\t941.42\n2015-10\tConsumidor NORMAL\t33525\t72.16\n2015-10\tConsumidor ALTO Punta\t27560\t274.99\n2015-10\tConsumidor EXTREMO Punta\t9130\t915.89\n"
+          },
+          {
+            "type": "TABLE",
+            "data": "MERCADO\tPerfil_Intensidad_Tarde\tFrecuencia\nM1\tConsumidor ALTO Punta\t221576\nM1\tConsumidor EXTREMO Punta\t118717\nM2\tConsumidor ALTO Punta\t200416\nM2\tConsumidor EXTREMO Punta\t105598\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d20"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d21"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d22"
+            },
+            {
+              "jobUrl": "http://86cb6bfb370f:4040/jobs/job?id\u003d23"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776527076072_1641225437",
+      "id": "paragraph_1776527076072_1641225437",
+      "dateCreated": "2026-04-18 15:44:36.072",
+      "dateStarted": "2026-04-18 15:45:34.075",
+      "dateFinished": "2026-04-18 15:45:47.736",
+      "status": "FINISHED"
+    },
+    {
+      "text": "",
+      "user": "anonymous",
+      "dateUpdated": "2026-04-18 15:45:44.114",
+      "progress": 0,
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1776527134074_932250912",
+      "id": "paragraph_1776527134074_932250912",
+      "dateCreated": "2026-04-18 15:45:34.074",
+      "status": "READY"
+    }
+  ],
+  "name": "Entregable 3",
+  "id": "2MQJQH74W",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.12.0",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}
